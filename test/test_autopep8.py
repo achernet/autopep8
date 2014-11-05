@@ -312,26 +312,6 @@ def foo():
             'print(123)\n',
             autopep8.fix_code(b'print( 123 )\n'))
 
-    def test_fix_code_with_options(self):
-        self.assertEqual(
-            'print(123)\n',
-            autopep8.fix_code('print( 123 )\n', options={'ignore': ['W']}))
-
-        self.assertEqual(
-            'print( 123 )\n',
-            autopep8.fix_code('print( 123 )\n', options={'ignore': ['E']}))
-
-        self.assertEqual(
-            'y in x\n',
-            autopep8.fix_code('x.has_key(y)\n', options={'aggressive': True}))
-
-    def test_fix_code_with_bad_options(self):
-        with self.assertRaises(ValueError):
-            autopep8.fix_code('print( 123 )\n', options={'ignor': ['W']})
-
-        with self.assertRaises(ValueError):
-            autopep8.fix_code('print( 123 )\n', options={'ignore': 'W'})
-
     def test_normalize_line_endings(self):
         self.assertEqual(
             ['abc\n', 'def\n', '123\n', 'hello\n', 'world\n'],
@@ -2100,6 +2080,7 @@ class Foo(object):
 '''
         fixed = '''\
 class Foo(object):
+
     """Test."""
 
     def foo(self):
@@ -2245,20 +2226,6 @@ print(111, 111, 111, 111, 222, 222, 222, 222,
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
 
-    def test_e501_with_dictionary(self):
-        line = """\
-myDict = { 'kg': 1, 'tonnes': tonne, 't/y': tonne / year, 'Mt/y': 1e6 * tonne / year}
-"""
-        fixed = """\
-myDict = {
-    'kg': 1,
-    'tonnes': tonne,
-    't/y': tonne / year,
-    'Mt/y': 1e6 * tonne / year}
-"""
-        with autopep8_context(line, options=['--aggressive']) as result:
-            self.assertEqual(fixed, result)
-
     def test_e501_with_in(self):
         line = """\
 if True:
@@ -2373,8 +2340,8 @@ if True:
 """
         fixed = """\
 if True:
-    reconstructed = iradon(radon(image), filter="ramp",
-                           interpolation="nearest")
+    reconstructed = iradon(
+        radon(image), filter="ramp", interpolation="nearest")
 """
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
@@ -2400,36 +2367,6 @@ x = [
     234234,
     234243,
     234243]
-"""
-        with autopep8_context(line, options=['--aggressive']) as result:
-            self.assertEqual(fixed, result)
-
-    def test_e501_with_lambda(self):
-        line = """\
-self.mock_group.modify_state.side_effect = lambda *_: defer.fail(NoSuchScalingGroupError(1, 2))
-"""
-        fixed = """\
-self.mock_group.modify_state.side_effect = lambda *_: defer.fail(
-    NoSuchScalingGroupError(1, 2))
-"""
-        with autopep8_context(line) as result:
-            self.assertEqual(fixed, result)
-
-    def test_e501_shorten_with_backslash(self):
-        line = """\
-class Bar(object):
-
-    def bar(self, position):
-        if 0 <= position <= self._blocks[-1].position + len(self._blocks[-1].text):
-            pass
-"""
-        fixed = """\
-class Bar(object):
-
-    def bar(self, position):
-        if 0 <= position <= self._blocks[-1].position + \\
-                len(self._blocks[-1].text):
-            pass
 """
         with autopep8_context(line, options=['--aggressive']) as result:
             self.assertEqual(fixed, result)
@@ -2557,6 +2494,20 @@ if True:
 """
         with autopep8_context(line) as result:
             self.assertEqual(line, result)
+
+    def test_e501_prefer_to_break_at_begnning(self):
+        """We prefer not to leave part of the arguments hanging."""
+        line = """\
+
+looooooooooooooong = foo(one, two, three, four, five, six, seven, eight, nine, ten)
+"""
+        fixed = """\
+
+looooooooooooooong = foo(
+    one, two, three, four, five, six, seven, eight, nine, ten)
+"""
+        with autopep8_context(line) as result:
+            self.assertEqual(fixed, result)
 
     def test_e501_avoid_breaking_at_empty_parentheses_if_possible(self):
         line = """\
@@ -3139,8 +3090,8 @@ if True or \\
     pass
 """
         fixed = """\
-if True or \\
-        False:  # test test test test test test test test test test test test test test
+# test test test test test test test test test test test test test test
+if True or False:
     pass
 """
         with autopep8_context(line, options=['-aa']) as result:
@@ -3225,9 +3176,10 @@ if True:
         fixed = """\
 if True:
     # comment here
-    print(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
-          bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,
-          cccccccccccccccccccccccccccccccccccccccccc)
+    print(
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,
+        cccccccccccccccccccccccccccccccccccccccccc)
 """
         with autopep8_context(line, options=['-aa']) as result:
             self.assertEqual(fixed, result)
@@ -3325,7 +3277,8 @@ def f():
 def f():
     man_this_is_a_very_long_function_name(
         an_extremely_long_variable_name,
-        ('a string that is long: %s' % 'bork'))
+        ('a string that is long: %s' %
+         'bork'))
 """
         with autopep8_context(line, options=['-aa']) as result:
             self.assertEqual(fixed, result)
@@ -3338,8 +3291,9 @@ def f(self):
 """
         fixed = """\
 def f(self):
-    self._xxxxxxxx(aaaaaa, bbbbbbbbb, cccccccccccccccccc, [
-                   ('mmmmmmmmmm', self.yyyyyyyyyy.zzzzzzz / _DDDDD)], eee, 'ff')
+    self._xxxxxxxx(
+        aaaaaa, bbbbbbbbb, cccccccccccccccccc, [
+            ('mmmmmmmmmm', self.yyyyyyyyyy.zzzzzzz / _DDDDD)], eee, 'ff')
 """
 
         with autopep8_context(line, options=['-aa']) as result:
@@ -3350,8 +3304,15 @@ def f(self):
 @foo(('xxxxxxxxxxxxxxxxxxxxxxxxxx', users.xxxxxxxxxxxxxxxxxxxxxxxxxx), ('yyyyyyyyyyyy', users.yyyyyyyyyyyy), ('zzzzzzzzzzzzzz', users.zzzzzzzzzzzzzz))
 """
         fixed = """\
-@foo(('xxxxxxxxxxxxxxxxxxxxxxxxxx', users.xxxxxxxxxxxxxxxxxxxxxxxxxx),
-     ('yyyyyyyyyyyy', users.yyyyyyyyyyyy), ('zzzzzzzzzzzzzz', users.zzzzzzzzzzzzzz))
+
+
+@foo(
+    ('xxxxxxxxxxxxxxxxxxxxxxxxxx',
+     users.xxxxxxxxxxxxxxxxxxxxxxxxxx),
+    ('yyyyyyyyyyyy',
+     users.yyyyyyyyyyyy),
+    ('zzzzzzzzzzzzzz',
+     users.zzzzzzzzzzzzzz))
 """
 
         with autopep8_context(line, options=['-aa']) as result:
@@ -3379,7 +3340,7 @@ def foo():
 """
         fixed = """\
 def foo():
-    #. This is not a novel to be tossed aside lightly. It should be throw with great force.
+    # . This is not a novel to be tossed aside lightly. It should be throw with great force.
     self.xxxxxxxxx(
         _('yyyyyyyyyyyyy yyyyyyyyyyyy yyyyyyyy yyyyyyyy y'),
         'zzzzzzzzzzzzzzzzzzz',
@@ -4102,40 +4063,165 @@ correct = 'good syntax ?' in dict()
     def test_range(self):
         line = 'print( 1 )\nprint( 2 )\n print( 3 )\n'
         fixed = 'print( 1 )\nprint(2)\n print( 3 )\n'
-        with autopep8_context(line, options=['--line-range', '2', '2']) as result:
+        with autopep8_context(line, options=['--range', '2', '2']) as result:
             self.assertEqual(fixed, result)
 
     def test_range_line_number_changes_from_one_line(self):
         line = 'a=12\na=1; b=2;c=3\nd=4;\n\ndef f(a = 1):\n    pass\n'
         fixed = 'a=12\na = 1\nb = 2\nc = 3\nd=4;\n\ndef f(a = 1):\n    pass\n'
-        with autopep8_context(line, options=['--line-range', '2', '2']) as result:
+        with autopep8_context(line, options=['--range', '2', '2']) as result:
             self.assertEqual(fixed, result)
+
+    def test_range_indent_changes_large_range(self):
+        line = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
+        fixed0_9 = '\nif True:\n    (1,\n     2,\n     3)\nelif False:\n    a = 1\nelse:\n    a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
+        with autopep8_context(line, options=['--range', '1', '9']) as result:
+            self.assertEqual(fixed0_9, result)
 
     def test_range_indent_changes_small_range(self):
         line = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
         fixed2_5 = '\nif True:\n  (1,\n   2,\n   3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
-        with autopep8_context(line, options=['--line-range', '2', '5']) as result:
+        with autopep8_context(line, options=['--range', '2', '5']) as result:
             self.assertEqual(fixed2_5, result)
+
+    def test_range_indent_changes_multiline(self):
+        line = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
+        fixed_11_15 = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n    c = 2\n    a = (1,\n         2)\n'
+        with autopep8_context(line, options=['--range', '11', '15']) as result:
+            self.assertEqual(fixed_11_15, result)
+
+    def test_range_indent_changes_partial_multiline(self):
+        line = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n  c = 2\n  a = (1,\n2)\n'
+        fixed_11_14 = '\nif True:\n  (1, \n    2,\n3)\nelif False:\n  a = 1\nelse:\n  a = 2\n\nc = 1\nif True:\n    c = 2\n    a = (1,\n2)\n'
+        with autopep8_context(line, options=['--range', '11', '14']) as result:
+            self.assertEqual(fixed_11_14, result)
+
+    def test_range_indent_long_multiline_small_range(self):
+        line = '\nif True:\n  (1,\n2,\n3,\n\n4,\n\n5,\n6)'
+        fixed_2_3 = '\nif True:\n    (1,\n2,\n3,\n\n4,\n\n5,\n6)\n'
+        with autopep8_context(line, options=['--range', '2', '3']) as result:
+            self.assertEqual(fixed_2_3, result)
+
+    def test_range_indent_long_multiline_partial_range(self):
+        line = '\nif True:\n  (1,\n2,\n3,\n\n4,\n\n5,\n6)'
+        fixed_2_6 = '\nif True:\n    (1,\n     2,\n     3,\n\n4,\n\n5,\n6)\n'
+        with autopep8_context(line, options=['--range', '2', '6']) as result:
+            self.assertEqual(fixed_2_6, result)
+
+    def test_range_indent_long_multiline_middle_of_multiline(self):
+        line = '\nif True:\n  (1,\n2,\n3,\n\n4,\n\n5,\n6)'
+        # weird-ish edge case, fixes earlier lines (up to beginning of
+        # multi-line block)
+        fixed_2_6 = '\nif True:\n    (1,\n     2,\n     3,\n\n     4,\n\n5,\n6)\n'
+        with autopep8_context(line, options=['--range', '4', '6']) as result:
+            self.assertEqual(fixed_2_6, result)
 
     def test_range_indent_deep_if_blocks_first_block(self):
         line = '\nif a:\n  if a = 1:\n    b = 1\n  else:\n    b = 2\nelif a == 0:\n  b = 3\nelse:\n  b = 4\n'
-        with autopep8_context(line, options=['--line-range', '2', '5']) as result:
+        with autopep8_context(line, options=['--range', '2', '5']) as result:
             self.assertEqual(line, result)
+
+    def test_range_indent_deep_if_blocks_large_range(self):
+        line = '\nif a:\n  if a = 1:\n    b = 1\n  else:\n    b = 2\nelif a == 0:\n  b = 3\nelse:\n  b = 4\n'
+        fixed_2_7 = '\nif a:\n  if a = 1:\n      b = 1\n  else:\n      b = 2\nelif a == 0:\n  b = 3\nelse:\n  b = 4\n'
+        with autopep8_context(line, options=['--range', '2', '7']) as result:
+            self.assertEqual(fixed_2_7, result)
 
     def test_range_indent_deep_if_blocks_second_block(self):
         line = '\nif a:\n  if a = 1:\n    b = 1\n  else:\n    b = 2\nelif a == 0:\n  b = 3\nelse:\n  b = 4\n'
-        with autopep8_context(line, options=['--line-range', '6', '9']) as result:
+        with autopep8_context(line, options=['--range', '6', '9']) as result:
             self.assertEqual(line, result)
+
+    def test_range_indent_continued_statements(self):
+        line = '\nif a == 1:\n\ttry:\n\t  foo\n\texcept AttributeError:\n\t  pass\n\telse:\n\t  "nooo"\n\tb = 1\n'
+        fixed_2_8 = '\nif a == 1:\n\ttry:\n\t    foo\n\texcept AttributeError:\n\t    pass\n\telse:\n\t    "nooo"\n\tb = 1\n'
+        with autopep8_context(line, options=['--range', '2', '8']) as result:
+            self.assertEqual(fixed_2_8, result)
 
     def test_range_indent_continued_statements_partial(self):
         line = '\nif a == 1:\n\ttry:\n\t  foo\n\texcept AttributeError:\n\t  pass\n\telse:\n\t  "nooo"\n\tb = 1\n'
-        with autopep8_context(line, options=['--line-range', '2', '6']) as result:
+        with autopep8_context(line, options=['--range', '2', '6']) as result:
             self.assertEqual(line, result)
 
     def test_range_indent_continued_statements_last_block(self):
         line = '\nif a == 1:\n\ttry:\n\t  foo\n\texcept AttributeError:\n\t  pass\n\telse:\n\t  "nooo"\n\tb = 1\n'
-        with autopep8_context(line, options=['--line-range', '6', '9']) as result:
+        with autopep8_context(line, options=['--range', '6', '9']) as result:
             self.assertEqual(line, result)
+
+    def test_range_indent_neighbouring_blocks(self):
+        line = '\nif a == 1:\n  b = 1\nif a == 2:\n  b = 2\nif a == 3:\n  b = 3\n'
+        fixed_2_3 = '\nif a == 1:\n    b = 1\nif a == 2:\n  b = 2\nif a == 3:\n  b = 3\n'
+        with autopep8_context(line, options=['--range', '2', '3']) as result:
+            self.assertEqual(fixed_2_3, result)
+
+    def test_range_indent_neighbouring_blocks_one_line(self):
+        line = '\nif a == 1:\n  b = 1\nif a == 2:\n  b = 2\nif a == 3:\n  b = 3\n'
+        fixed_2_3 = '\nif a == 1:\n    b = 1\nif a == 2:\n  b = 2\nif a == 3:\n  b = 3\n'
+        fixed_3_3 = fixed_2_3
+        with autopep8_context(line, options=['--range', '3', '3']) as result:
+            self.assertEqual(fixed_3_3, result)
+
+    def test_range_indent_above_less_indented(self):
+        line = '\ndef f(x):\n  if x:\n    return x\n'
+        fixed_3_4 = '\ndef f(x):\n    if x:\n        return x\n'
+        with autopep8_context(line, options=['--range', '3', '4']) as result:
+            self.assertEqual(fixed_3_4, result)
+
+    def test_range_indent_docstrings_partial(self):
+        line = '\ndef f(x):\n  """docstring\n  docstring"""\n  #comment\n  if x:\n    return x\n'
+        fixed_2_5 = '\ndef f(x):\n  """docstring\n  docstring"""\n  # comment\n  if x:\n    return x\n'
+        with autopep8_context(line, options=['--range', '2', '5']) as result:
+            self.assertEqual(fixed_2_5, result)
+
+    def test_range_indent_docstrings(self):
+        line = '\ndef f(x):\n  """docstring\n  docstring"""\n  #comment\n  if x:\n    return x\n'
+        fixed_2_7 = '\ndef f(x):\n    """docstring\n    docstring"""\n    # comment\n    if x:\n        return x\n'
+        with autopep8_context(line, options=['--range', '2', '7']) as result:
+            self.assertEqual(fixed_2_7, result)
+
+    def test_range_indent_multiline_strings(self):
+        line = '\nif True:\n  a = """multi\nline\nstring"""\n  #comment\n  a=1\na=2\n'
+        fixed_2_7 = '\nif True:\n    a = """multi\nline\nstring"""\n    # comment\n    a = 1\na=2\n'
+        with autopep8_context(line, options=['--range', '2', '7']) as result:
+            self.assertEqual(fixed_2_7, result)
+
+    def test_range_indent_multiline_strings_and_docstring(self):
+        code_ = '''
+def f():
+  """docstring
+  continued"""
+  a = """multi
+line
+string"""
+  #comment
+  a=1
+a=2
+'''
+        fixed_2_7 = '''
+def f():
+    """docstring
+    continued"""
+    a = """multi
+line
+string"""
+    # comment
+    a = 1
+a=2
+'''
+        with autopep8_context(code_, options=['--range', '2', '9']) as result:
+            self.assertEqual(fixed_2_7, result)
+
+    def test_range_with_indented_comments(self):
+        code_ = 'if True:\n  if True:\n    if True:\n      # bah\n      pass\n'
+        fixed = 'if True:\n  if True:\n    if True:\n        # bah\n        pass\n'
+        with autopep8_context(code_, options=['--range', '4', '5']) as result:
+            self.assertEqual(fixed, result)
+
+    def test_range_with_indented_comments_spaced(self):
+        code_ = 'if True:\n  if True:\n    if True:\n      # bah\n\n      pass\n'
+        fixed = 'if True:\n  if True:\n    if True:\n        # bah\n\n        pass\n'
+        with autopep8_context(code_, options=['--range', '4', '6']) as result:
+            self.assertEqual(fixed, result)
 
     def test_range_with_broken_syntax(self):
         line = """\
@@ -4145,7 +4231,7 @@ if True:
  else:
     pass
 """
-        with autopep8_context(line, options=['--line-range', '1', '1']) as result:
+        with autopep8_context(line, options=['--range', '1', '1']) as result:
             self.assertEqual(line, result)
 
 
@@ -4365,14 +4451,15 @@ class CommandLineTests(unittest.TestCase):
         with temporary_file_context(line) as filename:
             for options in [['--recursive', filename],  # without --diff
                             ['--jobs=2', filename],  # without --diff
+                            ['--exclude=foo', filename],  # without --recursive
                             ['--max-line-length=0', filename],
                             [],  # no argument
                             ['-', '--in-place'],
                             ['-', '--recursive'],
                             ['-', filename],
-                            ['--line-range', '0', '2', filename],
-                            ['--line-range', '2', '1', filename],
-                            ['--line-range', '-1', '-1', filename],
+                            ['--range', '0', '2', filename],
+                            ['--range', '2', '1', filename],
+                            ['--range', '-1', '-1', filename],
                             ]:
                 p = Popen(list(AUTOPEP8_CMD_TUPLE) + options,
                           stderr=PIPE)
@@ -4512,8 +4599,9 @@ class ExperimentalSystemTests(unittest.TestCase):
 print(111, 111, 111, 111, 222, 222, 222, 222, 222, 222, 222, 222, 222, 333, 333, 333, 333)
 """
         fixed = """\
-print(111, 111, 111, 111, 222, 222, 222, 222,
-      222, 222, 222, 222, 222, 333, 333, 333, 333)
+print(
+    111, 111, 111, 111, 222, 222, 222, 222, 222, 222, 222, 222, 222, 333, 333,
+    333, 333)
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -4523,8 +4611,9 @@ print(111, 111, 111, 111, 222, 222, 222, 222,
 foobar = {'aaaaaaaaaaaa': 'bbbbbbbbbbbbbbbb', 'dddddd': 'eeeeeeeeeeeeeeee', 'ffffffffffff': 'gggggggg'}
 """
         fixed = """\
-foobar = {'aaaaaaaaaaaa': 'bbbbbbbbbbbbbbbb',
-          'dddddd': 'eeeeeeeeeeeeeeee', 'ffffffffffff': 'gggggggg'}
+foobar = {
+    'aaaaaaaaaaaa': 'bbbbbbbbbbbbbbbb', 'dddddd': 'eeeeeeeeeeeeeeee',
+    'ffffffffffff': 'gggggggg'}
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -4624,8 +4713,10 @@ if True:
 x = [3244234243234, 234234234324, 234234324, 23424234, 234234234, 234234, 234243, 234243, 234234234324, 234234324, 23424234, 234234234, 234234, 234243, 234243]
 """
         fixed = """\
-x = [3244234243234, 234234234324, 234234324, 23424234, 234234234, 234234, 234243,
-     234243, 234234234324, 234234324, 23424234, 234234234, 234234, 234243, 234243]
+x = [
+    3244234243234, 234234234324, 234234324, 23424234, 234234234, 234234,
+    234243, 234243, 234234234324, 234234324, 23424234, 234234234, 234234,
+    234243, 234243]
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -4668,8 +4759,9 @@ def d():
         fixed = """\
 
 def d():
-    print(111, 111, 111, 111, 222, 222, 222, 222,
-          222, 222, 222, 222, 222, 333, 333, 333, 333)
+    print(
+        111, 111, 111, 111, 222, 222, 222, 222, 222, 222, 222, 222, 222, 333,
+        333, 333, 333)
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -4681,14 +4773,14 @@ if True:
 """
         fixed = """\
 if True:
-    print(111, 111, 111, 111, 222, 222, 222, 222,
-          222, 222, 222, 222, 222, 333, 333, 333, 333)
+    print(
+        111, 111, 111, 111, 222, 222, 222, 222, 222, 222, 222, 222, 222, 333,
+        333, 333, 333)
 """
         with autopep8_context(line, options=['--select=E501',
                                              '--experimental']) as result:
             self.assertEqual(fixed, result)
 
-    @unittest.skip('Not sure why space is not removed anymore')
     def test_e501_experimental_alone_with_tuple(self):
         line = """\
 fooooooooooooooooooooooooooooooo000000000000000000000000 = [1,
@@ -4710,8 +4802,9 @@ term3 = w6 * c5 * (8.0 * psi4 * (11.0 - 24.0 * t2) - 28 * psi3 * (1 - 6.0 * t2) 
 this_should_be_shortened = ('                                                                 ', '            ')
 """
         fixed = """\
-term3 = w6 * c5 * (8.0 * psi4 * (11.0 - 24.0 * t2) - 28 * psi3 * (1 - 6.0 * t2) +
-                   psi2 * (1 - 32 * t2) - psi * (2.0 * t2) + t4) / 720.0
+term3 = w6 * c5 * (
+    8.0 * psi4 * (11.0 - 24.0 * t2) - 28 * psi3 * (1 - 6.0 * t2) + psi2 *
+    (1 - 32 * t2) - psi * (2.0 * t2) + t4) / 720.0
 this_should_be_shortened = (
     '                                                                 ',
     '            ')
@@ -4759,6 +4852,18 @@ if True:
             blah = blah.blah_blah_blah_bla_bl(
                 blahb.blah, blah.blah, blah=blah.label, blah_blah=blah_blah,
                 blah_blah2=blah_blah)
+"""
+        with autopep8_context(line, options=['--experimental']) as result:
+            self.assertEqual(fixed, result)
+
+    def test_e501_experimental_prefer_to_break_at_beginning(self):
+        """We prefer not to leave part of the arguments hanging."""
+        line = """\
+looooooooooooooong = foo(one, two, three, four, five, six, seven, eight, nine, ten)
+"""
+        fixed = """\
+looooooooooooooong = foo(
+    one, two, three, four, five, six, seven, eight, nine, ten)
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -4995,6 +5100,7 @@ class Useless(object):
             self.assertEqual(fixed, result)
 
     def test_e501_with_experimental(self):
+        # FIXME: This has really bad output.
         line = """\
 models = {
     'auth.group': {
@@ -5007,8 +5113,27 @@ models = {
     },
 }
 """
+        fixed = """\
+models = {
+    'auth.group':
+    {'Meta': {'object_name': 'Group'},
+     'permissions':
+     ('django.db.models.fields.related.ManyToManyField', [],
+      {'to': "orm['auth.Permission']", 'symmetrical': 'False',
+       'blank': 'True'})},
+    'auth.permission':
+    {
+        'Meta':
+        {
+            'ordering':
+            "('content_type__app_label', 'content_type__model', 'codename')",
+            'unique_together': "(('content_type', 'codename'),)",
+            'object_name': 'Permission'},
+        'name': ('django.db.models.fields.CharField', [],
+                 {'max_length': '50'})}, }
+"""
         with autopep8_context(line, options=['--experimental']) as result:
-            self.assertEqual(line, result)
+            self.assertEqual(fixed, result)
 
     def test_e501_experimental_and_multiple_logical_lines(self):
         line = """\
@@ -5071,8 +5196,8 @@ if True or \\
     pass
 """
         fixed = """\
-if True or \\
-        False:  # test test test test test test test test test test test test test test
+# test test test test test test test test test test test test test test
+if True or False:
     pass
 """
         with autopep8_context(line, options=['--experimental']) as result:
@@ -5151,9 +5276,10 @@ if True:
         fixed = """\
 if True:
     # comment here
-    print(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
-          bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,
-          cccccccccccccccccccccccccccccccccccccccccc)
+    print(
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,
+        cccccccccccccccccccccccccccccccccccccccccc)
 """
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -5211,8 +5337,11 @@ def foobar(sldfkjlsdfsdf, kksdfsdfsf,sdfsdfsdf, sdfsdfkdk, szdfsdfsdf, sdfsdfsdf
     pass
 """
         fixed = """\
-def foobar(sldfkjlsdfsdf, kksdfsdfsf, sdfsdfsdf, sdfsdfkdk, szdfsdfsdf,
-           sdfsdfsdfsdlkfjsdlf, sdfsdfddf, sdfsdfsfd, sdfsdfdsf):
+
+
+def foobar(
+        sldfkjlsdfsdf, kksdfsdfsf, sdfsdfsdf, sdfsdfkdk, szdfsdfsdf,
+        sdfsdfsdfsdlkfjsdlf, sdfsdfddf, sdfsdfsfd, sdfsdfdsf):
     pass
 """
         with autopep8_context(line, options=['--experimental']) as result:
@@ -5268,6 +5397,22 @@ bork(
 
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
+
+    def test_e501_experimental_with_multiple_lines_and_quotes(self):
+        line = """\
+if True:
+    xxxxxxxxxxx = xxxxxxxxxxxxxxxxx(xxxxxxxxxxx, xxxxxxxxxxxxxxxx={'xxxxxxxxxxxx': 'xxxxx',
+                                                                   'xxxxxxxxxxx': xx,
+                                                                   'xxxxxxxx': False,
+                                                                   })
+"""
+        fixed = """\
+if True:
+    xxxxxxxxxxx = xxxxxxxxxxxxxxxxx(
+        xxxxxxxxxxx,
+        xxxxxxxxxxxxxxxx={'xxxxxxxxxxxx': 'xxxxx', 'xxxxxxxxxxx': xx,
+                          'xxxxxxxx': False, })
+"""
 
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
@@ -5327,7 +5472,6 @@ if True:
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
 
-    @unittest.skip('To do')
     def test_e501_experimental_tuple_on_line(self):
         line = """\
 def f():
@@ -5383,9 +5527,10 @@ aaaaaaaaaaaaaaaaaaaaa(
         fixed = """\
 
 
-@foo(('xxxxxxxxxxxxxxxxxxxxxxxxxx', users.xxxxxxxxxxxxxxxxxxxxxxxxxx),
-     ('yyyyyyyyyyyy', users.yyyyyyyyyyyy),
-     ('zzzzzzzzzzzzzz', users.zzzzzzzzzzzzzz))
+@foo(
+    ('xxxxxxxxxxxxxxxxxxxxxxxxxx', users.xxxxxxxxxxxxxxxxxxxxxxxxxx),
+    ('yyyyyyyyyyyy', users.yyyyyyyyyyyy),
+    ('zzzzzzzzzzzzzz', users.zzzzzzzzzzzzzz))
 """
 
         with autopep8_context(line, options=['--experimental']) as result:
