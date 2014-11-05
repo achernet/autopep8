@@ -11,7 +11,7 @@ PYTHON?=python
 COVERAGE?=coverage
 
 TEST_DIR=test
-
+.PHONY: test
 test: test_basic test_diff test_unit
 fasttest: test_fast
 
@@ -80,14 +80,17 @@ check:
 		--msg-template='{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}' \
 		--disable=bad-builtin \
 		--disable=bad-continuation \
+		--disable=bad-option-value \
 		--disable=fixme \
 		--disable=import-error \
 		--disable=invalid-name \
 		--disable=locally-disabled \
 		--disable=missing-docstring \
+		--disable=no-absolute-import \
 		--disable=no-member \
 		--disable=no-self-use \
 		--disable=not-callable \
+		--disable=old-division \
 		--disable=protected-access \
 		--disable=redefined-builtin \
 		--disable=star-args \
@@ -101,11 +104,13 @@ check:
 		--disable=too-many-public-methods \
 		--disable=too-many-statements \
 		--disable=undefined-loop-variable \
+		--disable=unicode-builtin \
 		--rcfile=/dev/null autopep8.py setup.py update_readme.py
 	pylint \
 		--reports=no \
 		--msg-template='{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}' \
 		--disable=bad-continuation \
+		--disable=basestring-builtin \
 		--disable=blacklisted-name \
 		--disable=duplicate-code \
 		--disable=import-error \
@@ -113,9 +118,11 @@ check:
 		--disable=line-too-long \
 		--disable=star-args \
 		--disable=missing-docstring \
+		--disable=no-absolute-import \
 		--disable=no-member \
 		--disable=protected-access \
 		--disable=redefined-builtin \
+		--disable=relative-import \
 		--disable=too-many-arguments \
 		--disable=too-many-branches \
 		--disable=too-many-lines \
