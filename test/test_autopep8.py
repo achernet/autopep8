@@ -1792,13 +1792,13 @@ $(function(){
             self.assertEqual(fixed, result)
 
     def test_e223(self):
-        line = 'a = 1	+ 1\n'  # include TAB
+        line = 'a = 1\t+ 1\n'  # include TAB
         fixed = 'a = 1 + 1\n'
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
 
     def test_e223_double(self):
-        line = 'a = 1		+ 1\n'  # include TAB
+        line = 'a = 1\t\t+ 1\n'  # include TAB
         fixed = 'a = 1 + 1\n'
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
@@ -1820,13 +1820,13 @@ class Foo():
             self.assertEqual(fixed, result)
 
     def test_e224(self):
-        line = 'a = 11 +	1\n'    # include TAB
+        line = 'a = 11 +\t1\n'    # include TAB
         fixed = 'a = 11 + 1\n'
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
 
     def test_e224_double(self):
-        line = 'a = 11 +		1\n'    # include TAB
+        line = 'a = 11 +\t\t1\n'    # include TAB
         fixed = 'a = 11 + 1\n'
         with autopep8_context(line) as result:
             self.assertEqual(fixed, result)
