@@ -8,10 +8,12 @@
 .tox
 .travis-solo/
 .build-*/
+.coverage
+.pytest.coveragerc
 README.html
 __pycache__
 build
-.coverage
+cover
 coverage.xml
 dist
 htmlcov
