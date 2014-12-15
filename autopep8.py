@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-
+#
 # Copyright (C) 2010-2011 Hideo Hattori
 # Copyright (C) 2011-2013 Hideo Hattori, Steven Myint
-# Copyright (C) 2013-2015 Hideo Hattori, Steven Myint, Bill Wendling
+# Copyright (C) 2013-2014 Hideo Hattori, Steven Myint, Bill Wendling
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -40,6 +40,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import bisect
 import codecs
 import collections
 import copy
@@ -47,13 +48,13 @@ import difflib
 import fnmatch
 import inspect
 import io
+import itertools
 import keyword
 import locale
 import os
 import re
 import signal
 import sys
-import textwrap
 import token
 import tokenize
 
@@ -66,7 +67,7 @@ except NameError:
     unicode = str
 
 
-__version__ = '1.2a0'
+__version__ = '1.1'
 
 
 CR = '\r'
@@ -160,7 +161,10 @@ def extended_blank_lines(logical_line,
                          previous_logical):
     """Check for missing blank lines after class declaration."""
     if previous_logical.startswith('class '):
-        if logical_line.startswith(('def ', 'class ', '@')):
+        if (
+            logical_line.startswith(('def ', 'class ', '@')) or
+            pep8.DOCSTRING_REGEX.match(logical_line)
+        ):
             if indent_level and not blank_lines and not blank_before:
                 yield (0, 'E309 expected 1 blank line after class declaration')
     elif previous_logical.startswith('def '):
@@ -995,20 +999,6 @@ class FixPEP8(object):
         fixed_line = self.source[result['line'] - 1].rstrip()
         self.source[result['line'] - 1] = fixed_line + '\n'
 
-    def fix_w391(self, _):
-        """Remove trailing blank lines."""
-        blank_count = 0
-        for line in reversed(self.source):
-            line = line.rstrip()
-            if line:
-                break
-            else:
-                blank_count += 1
-
-        original_length = len(self.source)
-        self.source = self.source[:original_length - blank_count]
-        return range(1, 1 + original_length)
-
 
 def get_fixed_long_line(target, previous_line, original,
                         indent_word='    ', max_line_length=79,
@@ -1037,28 +1027,17 @@ def get_fixed_long_line(target, previous_line, original,
     # Also sort alphabetically as a tie breaker (for determinism).
     candidates = sorted(
         sorted(set(candidates).union([target, original])),
-        key=lambda x: line_shortening_rank(
-            x,
-            indent_word,
-            max_line_length,
-            experimental=experimental))
+        key=lambda x: line_shortening_rank(x,
+                                           indent_word,
+                                           max_line_length,
+                                           experimental))
 
     if verbose >= 4:
         print(('-' * 79 + '\n').join([''] + candidates + ['']),
               file=wrap_output(sys.stderr, 'utf-8'))
 
     if candidates:
-        best_candidate = candidates[0]
-        # Don't allow things to get longer.
-        if longest_line_length(best_candidate) > longest_line_length(original):
-            return None
-        else:
-            return best_candidate
-
-
-def longest_line_length(code):
-    """Return length of longest line."""
-    return max(len(line) for line in code.splitlines())
+        return candidates[0]
 
 
 def join_logical_line(logical_line):
@@ -1094,7 +1073,7 @@ def untokenize_without_newlines(tokens):
         last_row = end_row
         last_column = end_column
 
-    return text.rstrip()
+    return text
 
 
 def _find_logical(source_lines):
@@ -2442,12 +2421,9 @@ def _execute_pep8(pep8_options, source):
             super(QuietReport, self).__init__(options)
             self.__full_error_results = []
 
-        def error(self, line_number, offset, text, check):
+        def error(self, line_number, offset, text, _):
             """Collect errors."""
-            code = super(QuietReport, self).error(line_number,
-                                                  offset,
-                                                  text,
-                                                  check)
+            code = super(QuietReport, self).error(line_number, offset, text, _)
             if code:
                 self.__full_error_results.append(
                     {'id': code,
@@ -2520,6 +2496,8 @@ class Reindenter(object):
             return self.input_text
         # Remove trailing empty lines.
         lines = self.lines
+        while lines and lines[-1] == '\n':
+            lines.pop()
         # Sentinel.
         stats.append((len(lines), 0))
         # Map count of leading spaces to # we want.
@@ -2827,6 +2805,7 @@ def shorten_comment(line, max_line_length, last_comment=False):
         # Trim comments that end with things like ---------
         return line[:max_line_length] + '\n'
     elif last_comment and re.match(r'\s*#+\s*\w+', line):
+        import textwrap
         split_lines = textwrap.wrap(line.lstrip(' \t#'),
                                     initial_indent=indentation,
                                     subsequent_indent=indentation,
@@ -2874,37 +2853,14 @@ def fix_code(source, options=None, encoding=None, apply_config=False):
     "encoding" will be used to decode "source" if it is a byte string.
 
     """
-    options = _get_options(options, apply_config)
+    if not options:
+        options = parse_args([''], apply_config=apply_config)
 
     if not isinstance(source, unicode):
-        source = source.decode(encoding or get_encoding())
+        source = source.decode(encoding or locale.getpreferredencoding())
 
     sio = io.StringIO(source)
     return fix_lines(sio.readlines(), options=options)
-
-
-def _get_options(raw_options, apply_config):
-    """Return parsed options."""
-    if not raw_options:
-        return parse_args([''], apply_config=apply_config)
-
-    if isinstance(raw_options, dict):
-        options = parse_args([''], apply_config=apply_config)
-        for name, value in raw_options.items():
-            if not hasattr(options, name):
-                raise ValueError("No such option '{}'".format(name))
-
-            # Check for very basic type errors.
-            expected_type = type(getattr(options, name))
-            if not isinstance(expected_type, (str, unicode)):
-                if isinstance(value, (str, unicode)):
-                    raise ValueError(
-                        "Option '{}' should not be a string".format(name))
-            setattr(options, name, value)
-    else:
-        options = raw_options
-
-    return options
 
 
 def fix_lines(source_lines, options, filename=''):
@@ -2918,8 +2874,7 @@ def fix_lines(source_lines, options, filename=''):
     previous_hashes = set()
 
     if options.line_range:
-        # Disable "apply_local_fixes()" for now due to issue #175.
-        fixed_source = tmp_source
+        fixed_source = apply_local_fixes(tmp_source, options)
     else:
         # Apply global fixes only once (for efficiency).
         fixed_source = apply_global_fixes(tmp_source,
@@ -3030,6 +2985,194 @@ def apply_global_fixes(source, options, where='global', filename=''):
     return source
 
 
+def apply_local_fixes(source, options):
+    """Ananologus to apply_global_fixes, but runs only those which makes sense
+    for the given line_range.
+
+    Do as much as we can without breaking code.
+
+    """
+    def find_ge(a, x):
+        """Find leftmost item greater than or equal to x."""
+        i = bisect.bisect_left(a, x)
+        if i != len(a):
+            return (i, a[i])
+        return (len(a) - 1, a[-1])
+
+    def find_le(a, x):
+        """Find rightmost value less than or equal to x."""
+        i = bisect.bisect_right(a, x)
+        if i:
+            return (i - 1, a[i - 1])
+        return (0, a[0])
+
+    def local_fix(source, start_log, end_log,
+                  start_lines, end_lines, indents, last_line):
+        """apply_global_fixes to the source between start_log and end_log.
+
+        The subsource must be the correct syntax of a complete python program
+        (but all lines may share an indentation). The subsource's shared indent
+        is removed, fixes are applied and the indent prepended back. Taking
+        care to not reindent strings.
+
+        last_line is the strict cut off (options.line_range[1]), so that
+        lines after last_line are not modified.
+
+        """
+        if end_log < start_log:
+            return source
+
+        ind = indents[start_log]
+        indent = _get_indentation(source[start_lines[start_log]])
+
+        sl = slice(start_lines[start_log], end_lines[end_log] + 1)
+
+        subsource = source[sl]
+        msl = multiline_string_lines(''.join(subsource),
+                                     include_docstrings=False)
+        # Remove indent from subsource.
+        if ind:
+            for line_no in start_lines[start_log:end_log + 1]:
+                pos = line_no - start_lines[start_log]
+                subsource[pos] = subsource[pos][ind:]
+
+            # Remove indent from comments.
+            for (i, line) in enumerate(subsource):
+                if i + 1 not in msl and re.match(r'\s*#', line):
+                    if line.index('#') >= ind:
+                        subsource[i] = line[ind:]
+
+        # Fix indentation of subsource.
+        fixed_subsource = apply_global_fixes(''.join(subsource),
+                                             options,
+                                             where='local')
+        fixed_subsource = fixed_subsource.splitlines(True)
+
+        # Add back indent for non multi-line strings lines.
+        msl = multiline_string_lines(''.join(fixed_subsource),
+                                     include_docstrings=False)
+        for (i, line) in enumerate(fixed_subsource):
+            if not i + 1 in msl:
+                fixed_subsource[i] = indent + line if line != '\n' else line
+
+        # We make a special case to look at the final line, if it's a multiline
+        # *and* the cut off is somewhere inside it, we take the fixed
+        # subset up until last_line, this assumes that the number of lines
+        # does not change in this multiline line.
+        changed_lines = len(fixed_subsource)
+        if (
+            start_lines[end_log] != end_lines[end_log] and
+            end_lines[end_log] > last_line
+        ):
+            after_end = end_lines[end_log] - last_line
+            fixed_subsource = (fixed_subsource[:-after_end] +
+                               source[sl][-after_end:])
+            changed_lines -= after_end
+
+            options.line_range[1] = (options.line_range[0] +
+                                     changed_lines - 1)
+
+        return (source[:start_lines[start_log]] +
+                fixed_subsource +
+                source[end_lines[end_log] + 1:])
+
+    def is_continued_stmt(line,
+                          continued_stmts=frozenset(['else', 'elif',
+                                                     'finally', 'except'])):
+        return re.split('[ :]', line.strip(), 1)[0] in continued_stmts
+
+    assert options.line_range
+    (start, end) = options.line_range
+    start -= 1
+    end -= 1
+    last_line = end  # We shouldn't modify lines after this cut-off.
+
+    try:
+        logical = _find_logical(source)
+    except (SyntaxError, tokenize.TokenError):
+        return ''.join(source)
+
+    if not logical[0]:
+        # Just blank lines, this should imply that it will become '\n' ?
+        return apply_global_fixes(source, options)
+
+    (start_lines, indents) = zip(*logical[0])
+    (end_lines, _) = zip(*logical[1])
+
+    source = source.splitlines(True)
+
+    (start_log, start) = find_ge(start_lines, start)
+    (end_log, end) = find_le(start_lines, end)
+
+    # Look behind one line, if it's indented less than current indent
+    # then we can move to this previous line knowing that its
+    # indentation level will not be changed.
+    if (
+        start_log > 0 and
+        indents[start_log - 1] < indents[start_log] and
+        not is_continued_stmt(source[start_log - 1])
+    ):
+        start_log -= 1
+        start = start_lines[start_log]
+
+    while start < end:
+
+        if is_continued_stmt(source[start]):
+            start_log += 1
+            start = start_lines[start_log]
+            continue
+
+        ind = indents[start_log]
+        for t in itertools.takewhile(lambda t: t[1][1] >= ind,
+                                     enumerate(logical[0][start_log:])):
+            (n_log, n) = start_log + t[0], t[1][0]
+
+        # Start shares indent up to n.
+        if n <= end:
+            source = local_fix(source, start_log, n_log,
+                               start_lines, end_lines,
+                               indents, last_line)
+            start_log = n_log if n == end else n_log + 1
+            start = start_lines[start_log]
+            continue
+
+        else:
+            # Look at the line after end and see if allows us to reindent.
+            (after_end_log, after_end) = find_ge(start_lines, end + 1)
+
+            if indents[after_end_log] > indents[start_log]:
+                (start_log, start) = find_ge(start_lines, start + 1)
+                continue
+
+            if (
+                indents[after_end_log] == indents[start_log] and
+                is_continued_stmt(source[after_end])
+            ):
+                # Find n, the beginning of the last continued statement.
+                # Apply fix to previous block if there is one.
+                only_block = True
+                for n, n_ind in logical[0][start_log:end_log + 1][::-1]:
+                    if n_ind == ind and not is_continued_stmt(source[n]):
+                        n_log = start_lines.index(n)
+                        source = local_fix(source, start_log, n_log - 1,
+                                           start_lines, end_lines,
+                                           indents, last_line)
+                        start_log = n_log + 1
+                        start = start_lines[start_log]
+                        only_block = False
+                        break
+                if only_block:
+                    (end_log, end) = find_le(start_lines, end - 1)
+                continue
+
+            source = local_fix(source, start_log, end_log,
+                               start_lines, end_lines,
+                               indents, last_line)
+            break
+
+    return ''.join(source)
+
+
 def extract_code_from_function(function):
     """Return code handled by function."""
     if not function.__name__.startswith('fix_'):
@@ -3057,11 +3200,11 @@ def create_parser():
                                      prog='autopep8')
     parser.add_argument('--version', action='version',
                         version='%(prog)s ' + __version__)
-    parser.add_argument('-v', '--verbose', action='count',
+    parser.add_argument('-v', '--verbose', action='count', dest='verbose',
                         default=0,
                         help='print verbose messages; '
                              'multiple -v result in more verbose messages')
-    parser.add_argument('-d', '--diff', action='store_true',
+    parser.add_argument('-d', '--diff', action='store_true', dest='diff',
                         help='print the diff for the fixed source')
     parser.add_argument('-i', '--in-place', action='store_true',
                         help='make changes to files in place')
@@ -3103,7 +3246,7 @@ def create_parser():
     parser.add_argument('--max-line-length', metavar='n', default=79, type=int,
                         help='set maximum allowed line length '
                              '(default: %(default)s)')
-    parser.add_argument('--line-range', '--range', metavar='line',
+    parser.add_argument('--range', metavar='line', dest='line_range',
                         default=None, type=int, nargs=2,
                         help='only fix errors found within this inclusive '
                              'range of line numbers (e.g. 1 99); '
@@ -3153,6 +3296,9 @@ def parse_args(arguments, apply_config=False):
 
     if args.recursive and not (args.in_place or args.diff):
         parser.error('--recursive must be used with --in-place or --diff')
+
+    if args.exclude and not args.recursive:
+        parser.error('--exclude is only relevant when used with --recursive')
 
     if args.in_place and args.diff:
         parser.error('--in-place and --diff are mutually exclusive')
@@ -3231,7 +3377,7 @@ def read_config(args, parser):
 
 def _split_comma_separated(string):
     """Return a set of strings."""
-    return set(text.strip() for text in string.split(',') if text.strip())
+    return set(filter(None, string.split(',')))
 
 
 def decode_filename(filename):
@@ -3286,7 +3432,7 @@ def line_shortening_rank(candidate, indent_word, max_line_length,
         return 0
 
     rank = 0
-    lines = candidate.rstrip().split('\n')
+    lines = candidate.split('\n')
 
     offset = 0
     if (
@@ -3337,12 +3483,6 @@ def line_shortening_rank(candidate, indent_word, max_line_length,
             if current_line == bad_start:
                 rank += 1000
 
-        if (
-            current_line.endswith(('.', '%', '+', '-', '/')) and
-            "': " in current_line
-        ):
-            rank += 1000
-
         if current_line.endswith(('(', '[', '{', '.')):
             # Avoid lonely opening. They result in longer lines.
             if len(current_line) <= len(indent_word):
@@ -3361,13 +3501,6 @@ def line_shortening_rank(candidate, indent_word, max_line_length,
 
             if has_arithmetic_operator(current_line):
                 rank += 100
-
-        # Avoid breaking at unary operators.
-        if re.match(r'.*[(\[{]\s*[\-\+~]$', current_line.rstrip('\\ ')):
-            rank += 1000
-
-        if re.match(r'.*lambda\s*\*$', current_line.rstrip('\\ ')):
-            rank += 1000
 
         if current_line.endswith(('%', '(', '[', '{')):
             rank -= 20
@@ -3405,10 +3538,6 @@ def line_shortening_rank(candidate, indent_word, max_line_length,
         # Prefer breaking at commas rather than colon.
         if ',' in current_line and current_line.endswith(':'):
             rank += 10
-
-        # Avoid splitting dictionaries between key and value.
-        if current_line.endswith(':'):
-            rank += 100
 
         rank += 10 * count_unbalanced_brackets(current_line)
 
@@ -3582,11 +3711,6 @@ def wrap_output(output, encoding):
                                       else output)
 
 
-def get_encoding():
-    """Return preferred encoding."""
-    return locale.getpreferredencoding() or sys.getdefaultencoding()
-
-
 def main(apply_config=True):
     """Tool main."""
     try:
@@ -3608,7 +3732,7 @@ def main(apply_config=True):
         if args.files == ['-']:
             assert not args.in_place
 
-            encoding = sys.stdin.encoding or get_encoding()
+            encoding = sys.stdin.encoding or locale.getpreferredencoding()
 
             # LineEndingWrapper is unnecessary here due to the symmetry between
             # standard in and standard out.
