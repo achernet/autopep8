@@ -2857,7 +2857,7 @@ def fix_code(source, options=None, encoding=None, apply_config=False):
         options = parse_args([''], apply_config=apply_config)
 
     if not isinstance(source, unicode):
-        source = source.decode(encoding or locale.getpreferredencoding())
+        source = source.decode(encoding or get_encoding())
 
     sio = io.StringIO(source)
     return fix_lines(sio.readlines(), options=options)
@@ -3711,6 +3711,11 @@ def wrap_output(output, encoding):
                                       else output)
 
 
+def get_encoding():
+    """Return preferred encoding."""
+    return locale.getpreferredencoding() or sys.getdefaultencoding()
+
+
 def main(apply_config=True):
     """Tool main."""
     try:
@@ -3732,7 +3737,7 @@ def main(apply_config=True):
         if args.files == ['-']:
             assert not args.in_place
 
-            encoding = sys.stdin.encoding or locale.getpreferredencoding()
+            encoding = sys.stdin.encoding or get_encoding()
 
             # LineEndingWrapper is unnecessary here due to the symmetry between
             # standard in and standard out.
