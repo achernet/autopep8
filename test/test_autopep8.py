@@ -5890,6 +5890,27 @@ if True:
         with autopep8_context(line, options=['--experimental']) as result:
             self.assertEqual(fixed, result)
 
+    def test_e265_within_comment_blocks(self):
+
+        def format_sample(sample_text):
+            lines = sample_text.strip().splitlines()
+            for i, line in enumerate(lines):
+                lines[i] = '   {0}'.format(line.strip())
+            return '\n'.join(lines)
+
+        sample_text = format_sample("""
+            #   Here is an example bash script from git-cola:
+            #
+            #        #!/bin/sh
+            #        GIT_MERGE_AUTOEDIT=no
+            #        export GIT_MERGE_AUTOEDIT
+            #
+            #   The line containing '/bin/sh' should not change!
+            """)
+        opts = ['-a', '-a', '--experimental']
+        with autopep8_context(sample_text, options=opts) as result:
+            self.assertIn('#!/bin/sh', result)
+
 
 @contextlib.contextmanager
 def autopep8_context(line, options=None):
