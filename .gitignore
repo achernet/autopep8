@@ -1,6 +1,8 @@
 .idea/
+cover/
 .project
 .pydevproject
+.pytest.coveragerc
 *.class
 *.egg-info/
 *.egg/
@@ -10,12 +12,10 @@
 .tox
 .travis-solo/
 .build-*/
-.coverage
-.pytest.coveragerc
 README.html
 __pycache__
 build
-cover
+.coverage
 coverage.xml
 dist
 htmlcov
