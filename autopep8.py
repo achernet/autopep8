@@ -59,6 +59,7 @@ import token
 import tokenize
 
 import pep8
+from profilehooks import profile
 
 
 try:
@@ -67,7 +68,7 @@ except NameError:
     unicode = str
 
 
-__version__ = '1.1'
+__version__ = '1.1.2a0'
 
 
 CR = '\r'
@@ -161,10 +162,7 @@ def extended_blank_lines(logical_line,
                          previous_logical):
     """Check for missing blank lines after class declaration."""
     if previous_logical.startswith('class '):
-        if (
-            logical_line.startswith(('def ', 'class ', '@')) or
-            pep8.DOCSTRING_REGEX.match(logical_line)
-        ):
+        if logical_line.startswith(('def ', 'class ', '@')):
             if indent_level and not blank_lines and not blank_before:
                 yield (0, 'E309 expected 1 blank line after class declaration')
     elif previous_logical.startswith('def '):
@@ -2857,7 +2855,7 @@ def fix_code(source, options=None, encoding=None, apply_config=False):
         options = parse_args([''], apply_config=apply_config)
 
     if not isinstance(source, unicode):
-        source = source.decode(encoding or locale.getpreferredencoding())
+        source = source.decode(encoding or get_encoding())
 
     sio = io.StringIO(source)
     return fix_lines(sio.readlines(), options=options)
@@ -3711,6 +3709,12 @@ def wrap_output(output, encoding):
                                       else output)
 
 
+def get_encoding():
+    """Return preferred encoding."""
+    return locale.getpreferredencoding() or sys.getdefaultencoding()
+
+
+@profile(immediate=True, entries=128, dirs=True, filename='autopep8.prof')
 def main(apply_config=True):
     """Tool main."""
     try:
@@ -3732,7 +3736,7 @@ def main(apply_config=True):
         if args.files == ['-']:
             assert not args.in_place
 
-            encoding = sys.stdin.encoding or locale.getpreferredencoding()
+            encoding = sys.stdin.encoding or get_encoding()
 
             # LineEndingWrapper is unnecessary here due to the symmetry between
             # standard in and standard out.
